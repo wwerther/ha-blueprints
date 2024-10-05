@@ -1,0 +1,246 @@
+blueprint:
+  name: ☎ AWTRIX - FritzBox Call Notification
+  description: |-
+    Blueprint for use with Awtrix and Fritz-Box as Callmonitor. 
+    Based on other flows that I found.
+
+    To make it work you need to add an instance of the Fritz!Box CallMonitor integration
+    if not already done.  And of course you need to activate the Call-Monitor Service
+    on your Fritz-Box. Otherwise the events will not be created and calls will not
+    be shown.
+
+    Uses Icons 
+      * 11177 when IDLE
+      * 57737 during DIALING
+      * 57738 when CALLED
+      * 1232 ongoing CALL
+
+    TODO: Add filtering for DIAL, CALL + IDLE notification
+    Sound: Flintstones
+    https://www.laub-home.de/wiki/RTTTL_Songs
+  domain: automation
+  author: Walter
+  input:
+    
+    awtrix:
+      name: AWTRIX Device
+      description: Select the Awtrix light
+      selector:
+        device:
+          integration: mqtt
+          manufacturer: Blueforcer
+          model: AWTRIX 3
+          multiple: true
+    
+    fritzbox:
+      name: Fritz-Box callmonitor entity
+      description: Select the Fritz-Box callmonitor
+      selector:
+        entity:
+          integration: fritzbox_callmonitor
+          multiple: false
+    
+    push_icon:
+      name: Icon Mode
+      description: |
+        Please select the pushIcon setting for the icon  
+          - `0`  Icon doesn't move
+          - `1`  Icon moves with text and will not appear again
+          - `2`  Icon moves with text but appears again when the text starts to scroll again (default)
+      selector:
+        select:
+          options:
+          - label: Icon doesn't move 
+            value: '0'
+          - label: Icon moves with text and will not appear again
+            value: '1'
+          - label: Icon moves with text but appears again when the text starts to scroll again
+            value: '2'
+          custom_value: false
+          sort: false
+          multiple: false
+      default: '2'
+
+    show_number:
+      name: Always Show Number
+      description: |
+        If set then the phone-number will always be shown. Otherwise only
+        the resolved name is shown if available, otherwise the number
+      selector:
+        boolean: {}
+      default: false
+
+    rtttl_ringing:
+      name: Call-Sound
+      description: |
+        TODO !!!
+      default: "d=4,o=5,b=40:32p,16f6,16a#,16a#6,32g6,16f6,16a#.,16f6,32d#6,32d6,32d6,32d#6,32f6,16a#,16c6,d6,16f6,16a#.,16a#6,32g6,16f6,16a#.,32f6,32f6,32d#6,32d6,32d6,32d#6,32f6,16a#,16c6,a#,16a6,16d.6,16a#6,32a6,32a6,32g6,32f#6,32a6,8g6,16g6,16c.6,32a6,32a6,32g6,32g6,32f6,32e6,32g6,8f6,16f6,16a#.,16a#6,32g6,16f6,16a#.,16f6,32d#6,32d6,32d6,32d#6,32f6,16a#,16c.6,32d6,32d#6,32f6,16a#,16c.6,32d6,32d#6,32f6,16a#6,16c7,8a#.6"
+
+    show_ringing:
+      name: CALL-Active
+      description: |
+        TODO!! If set then this blueprint will run when phone is being CALLED
+      selector:
+        boolean: {}
+      default: true
+
+    Dial_Show:
+      name: DIAL-Active
+      description: |
+        TODO!! If set then this blueprint will run when phone is doing Outbound
+        calls
+      selector:
+        boolean: {}
+      default: true
+
+    Idle_Show:
+      name: IDLE-Active
+      description: |
+        TODO!! If set then this blueprint will run when phone is IDLE
+      selector:
+        boolean: {}
+      default: true
+
+    icon_idle:
+      name: Icon when idle
+      description: Which icon should be used when phone is idle
+      selector:
+        number:
+          min: 0
+          max: 999999
+          mode: box
+      default: 11177
+
+    icon_dialing:
+      name: Icon during dialing
+      description: Which icon should be used when phone is dialing
+      selector:
+        number:
+          min: 0
+          max: 999999
+          mode: box
+      default: 57737
+
+    icon_ringing:
+      name: Icon during ringing
+      description: Which icon should be used when phone is ringing
+      selector:
+        number:
+          min: 0
+          max: 999999
+          mode: box
+      default: 57738
+
+    icon_talking:
+      name: Icon during call
+      description: Which icon should be used during the call
+      selector:
+        number:
+          min: 0
+          max: 999999
+          mode: box
+      default: 1232
+
+trigger:
+  - platform: state
+    id: change
+    entity_id:
+      - !input fritzbox
+
+mode: single
+
+variables:
+
+  # The list of device-IDs provided by input
+  device_ids: !input awtrix
+  
+  # The Fritz-Box Call-Monitor providing the event
+  fritzbox: !input fritzbox
+  
+  # Topics that we need for receiving the messages
+  devices_topics: >-
+    {%- macro get_device_topic(device_id) %}
+    {{ states((device_entities(device_id) | select('search','device_topic') | list)[0]) }}
+    {%- endmacro %}
+    {%- set ns = namespace(devices=[]) %}
+    {%- for device_id in device_ids %}
+      {%- set device=get_device_topic(device_id)|replace(' ','') %}
+      {% set ns.devices = ns.devices + [ device ~ '/notify' ] %}
+    {%- endfor %}
+    {{ ns.devices }}
+  
+  push_icon: !input push_icon
+
+  icon_idle: !input icon_idle
+  icon_dialing: !input icon_dialing
+  icon_ringing: !input icon_ringing
+  icon_talking: !input icon_talking
+
+  rtttl_ringing:  !input rtttl_ringing
+
+  show_number: !input show_number
+
+  selected_icon: >-
+      {% if is_state( fritzbox , "idle") -%}
+      {{ icon_idle }}
+      {%- elif is_state(fritzbox,"dialing") -%}
+      {{ icon_dialing }}
+      {%- elif is_state(fritzbox,"ringing") -%}
+      {{ icon_ringing }}
+      {%- else -%}
+      {{ icon_talking }} 
+      {%- endif %}
+
+  name: >-
+    {%- if is_state(fritzbox,"dialing") -%}
+    {{ state_attr(fritzbox, 'to_name') }}
+    {%- elif is_state(fritzbox,"ringing") -%}
+    {{ state_attr(fritzbox, 'from_name') }}
+    {%- else -%}
+    {{ state_attr(fritzbox, 'with_name') }}
+    {%- endif %}
+
+  rtttl: >-
+    {%- if is_state(fritzbox,"ringing") -%}
+    "rtttl": "{{ rtttl_ringing }}",
+    {%- endif -%}
+
+  number: >-
+    {%- if show_number -%} (
+    {%- if is_state(fritzbox,"dialing") -%}
+    {{ state_attr(fritzbox, 'to') }}
+    {%- elif is_state(fritzbox,"ringing") -%}
+    {{ state_attr(fritzbox, 'from') }}
+    {%- else -%}
+    {{ state_attr(fritzbox, 'with') }}
+    {%- endif %}){% else %}{%- endif %}
+
+  fritz_status: >-
+      {% if is_state( fritzbox , "idle") -%}
+      - end - 
+      {%- else -%}
+      {{ name }} {{ number }}
+      {%- endif %}
+
+  payload_fritz: >-
+      {% if 1 != 0 -%}
+      {
+        "icon": {{selected_icon}},
+        "pushIcon": "{{push_icon}}",
+        "text": "{{ fritz_status }}",
+        {{ rtttl }}
+        "repeat": 3
+      }
+      {%- else %}{%- endif %}
+
+action:
+
+  - repeat:
+      for_each: "{{ devices_topics }}"
+      sequence:
+        - service: mqtt.publish
+          data:
+            qos: 0
+            retain: false
+            topic: "{{ repeat.item }}"
+            payload: "{{payload_fritz}}"

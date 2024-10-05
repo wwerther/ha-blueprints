@@ -1,0 +1,343 @@
+---
+blueprint:
+  name: ☼ AWTRIX - SolarEdge Energy Monitor
+  description: >
+    This blueprint will show the current solar energy received, the amount of energy consumed by the household,
+    and the amount of energy stored in the battery.
+
+    The following icons are needed on your Awtrix
+      battery
+        discharge:  21586
+        charge:     21585
+      grid
+        consume:    53743
+        sent power: 54367
+        no power:   55702
+      household:    1299
+      solar-panel:  34921
+
+    Based on ideas https://flows.blueforcer.de/flow/YjJZo6m7AyrL
+    Uses entities provided by https://github.com/Remko76/hasolarcfg/tree/master
+
+    TODO:
+      threshold_high, threshold_low for solar production is currently not utilized
+      household: show progress bar depending on percentage of panels (green), battery (yellow), and grid (red)
+
+  domain: automation
+  author: Walter
+
+  input:
+    awtrix:
+      name: AWTRIX 3 devices
+      description: 
+        Select the Awtrix light(s) that should receive the apps
+      selector:
+        device:
+          integration: mqtt
+          manufacturer: Blueforcer
+          model: AWTRIX 3
+          multiple: true
+
+    grid_power:
+      name: grid power sensor
+      description:
+        A sensor providing the current power sent or received from the grid
+        uses icon 53743 for consumption from grid
+        and icon 54367 if power is sent to grid
+        and icon 55702 grid power is zero (anyway App will be disabled then)
+      selector:
+        entity:
+          domain:
+            - sensor
+          multiple: false
+      default: sensor.solaredge_m1_ac_power
+
+    house_consumption:
+      name: energy consumption of household
+      description:
+        how much total energy is consumed in the household 
+        coming from grid, batteries and panels
+        uses icon 1299
+      selector:
+        entity:
+          domain:
+            - sensor
+          multiple: false
+      default: sensor.solar_house_consumption_w
+
+    battery_status:
+      name: battery status
+      description: 
+        a sensor providing the state of your battery
+        discharging uses icon 21586  / charging uses icon 21585 / etc.
+      selector:
+        entity:
+          domain:
+            - sensor
+          multiple: false
+      default: sensor.solaredge_b1_status
+
+    battery_power:
+      name: battery power
+      description: 
+        a sensor providing the power of your battery
+      selector:
+        entity:
+          domain:
+            - sensor
+          multiple: false
+      default: sensor.solaredge_b1_dc_power
+
+    battery_soe:
+      name: load level of battery 0-100%
+      description:
+        a sensor providing the state of your battery
+      selector:
+        entity:
+          domain:
+            - sensor
+          multiple: false
+      default: sensor.solaredge_b1_state_of_energy
+
+    panel_power:
+      name: Power from the panels
+      description: 
+        a sensor providing the power coming from your panels
+        uses icon 34921
+      selector:
+        entity:
+          domain:
+            - sensor
+          multiple: false
+      default: sensor.solar_panel_production_w
+
+    bat_threshold_high:
+      name: Threshold for high battery color (%)
+      description: The threshold above which the battery state will be shown with high
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+          mode: slider
+      default: 75
+
+    bat_threshold_low:
+      name: Threshold for low battery color (%)
+      description: The threshold above which the battery state will be shown with low
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+          mode: slider
+      default: 25
+
+    bat_col_high:
+      name: high battery color
+      selector:
+        color_rgb:
+      default: [00, 255, 00]
+
+    bat_col_normal:
+      name: normal battery color
+      selector:
+        color_rgb:
+      default: [255, 255, 00]
+    
+    bat_col_low:
+      name: low battery color
+      selector:
+        color_rgb:
+      default: [255, 00, 00]
+
+    threshold_high:
+      name: Threshold for high solar production (W)
+      description: The threshold above which the energy production of your solar system should be visualized as high. Input in Watts (W).
+      selector:
+        number:
+          min: 0
+          max: 100000
+          unit_of_measurement: Watt
+          mode: slider
+      default: 400
+
+    threshold_low:
+      name: Threshold for low solar production (W)
+      description: The threshold below which the energy production of your solar system should be visualized as low. Input in Watts (W).
+      selector:
+        number:
+          min: 0
+          max: 100000
+          unit_of_measurement: Watt
+          mode: slider
+      default: 100
+
+mode: single
+variables:
+  # The list of AWTRIX devices that should receive the data
+  device_ids: !input awtrix
+
+  # Topics that we need for receiving the messages
+  devices_topics: >-
+    {%- macro get_device_topic(device_id) %}
+    {{ states((device_entities(device_id) | select('search','device_topic') | list)[0]) }}
+    {%- endmacro %}
+    {%- set ns = namespace(devices=[]) %}
+    {%- for device_id in device_ids %}
+      {%- set device=get_device_topic(device_id)|replace(' ','') %}
+      {% set ns.devices = ns.devices + [ device ~ '/custom/solar' ] %}
+    {%- endfor %}
+    {{ ns.devices }}
+
+  # Grid-Power-Sensor
+  gpow: !input grid_power
+
+  # Battery-Power-Sensor
+  bpow: !input battery_power
+  # Battery-Load-Sensor
+  bsoe: !input battery_soe
+  # Charging / Discharging etc...
+  bstatus: !input battery_status
+
+  # House-Power-Sensor
+  hpow: !input house_consumption
+
+  # Panel-Power-Sensor
+  pvpow: !input panel_power
+
+  bch: !input bat_col_high
+  bth: !input bat_threshold_high
+
+  bcn: !input bat_col_normal
+
+  btl: !input bat_threshold_low
+  bcl: !input bat_col_low
+
+  b_soe: >-
+    {{ states[bsoe].state | int(0) }}
+
+  b_pow: >-
+    {{ states[bpow].state | int(0) | abs }}
+
+  b_pow_text: >-
+    {%- if int(b_pow) > 1000  %}{{ ((b_pow | float(default=0)) / 1000) | round(1)}} kW{%- else %}{{ b_pow }} W{%- endif %}
+
+  # Get Powerlevel from house-consumption
+  h_pow: >-
+    {{ states[hpow].state | int(0) | abs }}
+
+  # Create nice text from it by converting to kW if appropriate
+  h_pow_text: >-
+    {%- if int(h_pow) > 1000  %}{{ ((h_pow | float(default=0)) / 1000) | round(1)}} kW{%- else %}{{ h_pow }} W{%- endif %}
+
+  # Get Powerlevel from grid
+  g_pow: >-
+    {{ states[gpow].state | int(0) | abs }}
+
+  # Create nice text from it by converting to kW if appropriate
+  g_pow_text: >-
+    {%- if int(g_pow) > 1000  %}{{ ((g_pow | float(default=0)) / 1000) | round(1)}} kW{%- else %}{{ g_pow }} W{%- endif %}
+
+  # Get Powerlevel from panels
+  pv_pow: >-
+    {{ states[pvpow].state | int(0) | abs }}
+
+  # Create nice text from it by converting to kW if appropriate
+  pv_pow_text: >-
+    {%- if int(pv_pow) > 1000  %}{{ ((pv_pow | float(default=0)) / 1000) | round(1)}} kW{%- else %}{{ pv_pow }} W{%- endif %}
+
+  # Icon for battery consumption  
+  b_icon: >-
+    {% if is_state(bstatus,"B_STATUS_DISCHARGE") -%}
+    21586
+    {%- else %}
+    21585
+    {%- endif %}
+
+  # Icon for grid consumption
+  g_icon: >-
+    {% if int(states[gpow].state) < 0 -%}
+    53743
+    {%- else %}
+    54367
+    {%- endif %}
+
+  # Icon for house-consumption
+  h_icon: 1299
+
+  # Icon for PV-Generation
+  pv_icon: 34921
+
+  # compose the MQTT payload for the battery
+  payload_battery: >-
+    {% if b_pow != 0 -%}
+    {
+     "icon": {{ b_icon }},
+     "pushIcon": "0",
+     "text": "{{ b_pow_text }}",
+     "progress": {{ b_soe }},
+     "progressC": {% if b_soe <= btl %}{{bcl}}{% elif b_soe >= bth  %}{{bch}}{% else%}{{bcn}}{%endif%}
+    }
+    {%- else %}{%- endif %}
+
+  # compose the MQTT payload for house consumption
+  payload_house: >-
+    {% if h_pow != 0 -%}
+    {
+     "icon": {{ h_icon }},
+     "pushIcon": "0",
+     "text": "{{ h_pow_text }}"
+    }
+    {%- else %}{%- endif %}
+
+  # compose the MQTT payload for power grid
+  payload_grid: >-
+    {
+     "icon": {{ g_icon }},
+     "pushIcon": "0",
+     "text": "{{ g_pow_text }}"
+    }
+
+  # compose the MQTT payload for panels
+  payload_pv: >-
+    {% if pv_pow != 0 -%}
+    {
+     "icon": {{ pv_icon }},
+     "pushIcon": "0",
+     "text": "{{ pv_pow_text }}"
+    }
+    {%- else %}{%- endif %}
+
+trigger:
+  - platform: time_pattern
+    minutes: "/1"
+
+action:
+  - repeat:
+      for_each: "{{ devices_topics }}"
+      sequence:
+        - service: mqtt.publish
+          data:
+            qos: 0
+            retain: false
+            topic: "{{ repeat.item }}hou"
+            payload: "{{ payload_house }}"
+        - service: mqtt.publish
+          data:
+            qos: 0
+            retain: false
+            topic: "{{ repeat.item }}bat"
+            payload: "{{ payload_battery }}"
+        - service: mqtt.publish
+          data:
+            qos: 0
+            retain: false
+            topic: "{{ repeat.item }}grid"
+            payload: "{{ payload_grid }}"
+        - service: mqtt.publish
+          data:
+            qos: 0
+            retain: false
+            topic: "{{ repeat.item }}pv"
+            payload: "{{ payload_pv }}"

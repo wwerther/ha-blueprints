@@ -1,0 +1,90 @@
+---
+blueprint:
+  name: ☼ AWTRIX - Waste collection
+  description: >
+    This blueprint will display the next upcoming waste collection event on the display
+
+    The following icons are needed on your Awtrix
+      Biomüll: 12442
+      Restmüll: 11979
+      Altpapier: 10124
+      gelber Sack: 11005
+
+  domain: automation
+  author: Walter
+
+  input:
+    awtrix:
+      name: AWTRIX 3 devices
+      description: 
+        Select the Awtrix light(s) that should receive the apps
+      selector:
+        device:
+          integration: mqtt
+          manufacturer: Blueforcer
+          model: AWTRIX 3
+          multiple: true
+
+    type:
+      name: Leerungstyp
+      description:
+        Die Leerungsart
+      selector:
+        sensor:
+          integration: WasteCollectionSchedule
+          multiple: false
+
+    day:
+      name: Wochentag
+      description:
+        Wochentag der Leerung
+      selector:
+        sensor:
+          integration: WasteCollectionSchedule
+
+mode: single
+variables:
+  # The list of AWTRIX devices that should receive the data
+  device_ids: !input awtrix
+
+  # Topics that we need for receiving the messages
+  devices_topics: >-
+    {%- macro get_device_topic(device_id) %}
+    {{ states((device_entities(device_id) | select('search','device_topic') | list)[0]) }}
+    {%- endmacro %}
+    {%- set ns = namespace(devices=[]) %}
+    {%- for device_id in device_ids %}
+      {%- set device=get_device_topic(device_id)|replace(' ','') %}
+      {% set ns.devices = ns.devices + [ device ~ '/custom/waste' ] %}
+    {%- endfor %}
+    {{ ns.devices }}
+
+  # Icon for house-consumption
+  h_icon: 1299
+  # Icon for PV-Generation
+  pv_icon: 34921
+
+  # compose the MQTT payload for house consumption
+  payload_waste: >-
+    {% if 2 < 3 -%}
+    {
+     "icon": 11005,
+     "pushIcon": "0",
+     "text": "Monday"
+    }
+    {%- else %}{%- endif %}
+
+trigger:
+  - platform: time_pattern
+    minutes: "/30"
+
+action:
+  - repeat:
+      for_each: "{{ devices_topics }}"
+      sequence:
+        - service: mqtt.publish
+          data:
+            qos: 0
+            retain: false
+            topic: "{{ repeat.item }}0"
+            payload: "{{ payload_waste }}"
