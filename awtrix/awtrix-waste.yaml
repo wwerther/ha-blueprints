@@ -31,8 +31,10 @@ blueprint:
         Test
       selector:
         entity:
-          domain: waste_collection_schedule
+          domain: 
+            - sensor
           multiple: false
+      default: sensor.leerungstyp
 
 mode: single
 variables:
@@ -68,7 +70,7 @@ variables:
     {{ ns.devices }}
 
   # Icon for house-consumption
-  icon: icon_dict["Gelber Sack"]
+  icon: icon_dict[wastetype]
   weekday: weekday_dict["Monday"]
 
   # compose the MQTT payload for house consumption
