@@ -47,6 +47,12 @@ blueprint:
           multiple: false
       default: sensor.nachteleerungwochentag
 
+    reminderonoff:
+      name: Reminder
+      description:
+        Should the reminder be shown at the moment or not
+      default: input_boolean.trash_reminder
+
 mode: single
 variables:
   icon_dict:
@@ -69,6 +75,8 @@ variables:
   device_ids: !input awtrix
   waste_type: !input wastetype
   waste_day: !input wasteday
+
+  remind: !input reminderonoff
 
   # Topics that we need for receiving the messages
   devices_topics: >-
@@ -100,7 +108,7 @@ variables:
 
   # compose the MQTT payload for waste collection
   payload_waste: >-
-    {% if 2 < 3 -%}
+    {% if is_state(remind,true) -%}
     {
      "icon": {{ icon }},
      "pushIcon": "0",
@@ -111,6 +119,7 @@ variables:
 trigger:
   - platform: time_pattern
     minutes: "/30"
+  
 
 action:
   - repeat:
