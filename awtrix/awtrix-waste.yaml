@@ -83,9 +83,19 @@ variables:
     {{ ns.devices }}
 
   icon: >-
-    {{ icon_dict[states[waste_type].state] }}
+    {%- if is_state(waste_type,"Gelber Sack") -%}
+    11005
+    {%- elif is_state(waste_type,"Restmüll") -%}
+    11979
+    {%- elif is_state(waste_type,"Biomüll") -%}
+    12442
+    {%- elif is_state(waste_type,"Problemmüll") -%}
+    0
+    {%- else %}
+    0
+    {%- endif %}
 
-  weekday: >-
+  day: >-
     {{ states[waste_day].state }}
 
   # compose the MQTT payload for waste collection
@@ -94,7 +104,7 @@ variables:
     {
      "icon": {{ icon }},
      "pushIcon": "0",
-     "text": {{ weekday }}
+     "text": "{{ day }}"
     }
     {%- else %}{%- endif %}
 
