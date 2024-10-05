@@ -25,13 +25,13 @@ blueprint:
           model: AWTRIX 3
           multiple: true
           required: true
+
     wastetype:
       name: Next collected Waste
       description:
         Test
       selector:
         entity:
-          domain: waste_collection_schedule
           multiple: false
 
 mode: single
