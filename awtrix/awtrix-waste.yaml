@@ -108,7 +108,7 @@ variables:
 
   # compose the MQTT payload for waste collection
   payload_waste: >-
-    {% if is_state(remind,true) -%}
+    {% if is_state(remind,'on') -%}
     {
      "icon": {{ icon }},
      "pushIcon": "0",
