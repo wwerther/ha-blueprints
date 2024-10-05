@@ -25,23 +25,6 @@ blueprint:
           model: AWTRIX 3
           multiple: true
 
-    type:
-      name: Leerungstyp
-      description:
-        Die Leerungsart
-      selector:
-        sensor:
-          integration: WasteCollectionSchedule
-          multiple: false
-
-    day:
-      name: Wochentag
-      description:
-        Wochentag der Leerung
-      selector:
-        sensor:
-          integration: WasteCollectionSchedule
-
 mode: single
 variables:
   # The list of AWTRIX devices that should receive the data
