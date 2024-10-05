@@ -82,11 +82,13 @@ variables:
     {%- endfor %}
     {{ ns.devices }}
 
-  # Icon for house-consumption
-  icon: icon_dict[waste_type]
-  weekday: weekday_dict[waste_day]
+  icon: >-
+    {{ icon_dict[waste_type.state] }}
 
-  # compose the MQTT payload for house consumption
+  weekday: >-
+    {{ weekday_dict[waste_day.state] }}
+
+  # compose the MQTT payload for waste collection
   payload_waste: >-
     {% if 2 < 3 -%}
     {
