@@ -12,7 +12,7 @@ Sorry, can't do that at the moment
 
 ### Awtrix
 
-Details: [awtrix/README.md]
+[Details](awtrix/README.md)
 
  * Awtrix Fritzbox Callmonitor
  * Awtrix Solaredge
