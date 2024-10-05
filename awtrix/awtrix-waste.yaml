@@ -25,16 +25,6 @@ blueprint:
           model: AWTRIX 3
           multiple: true
 
-      nexttype:
-        name: Leerungstyp
-        description: >
-          Select the type of waste that should be displayed
-        selector:
-          entity:
-            domain: sensor
-            multiple: false
-
-
 mode: single
 variables:
   icon_dict:
