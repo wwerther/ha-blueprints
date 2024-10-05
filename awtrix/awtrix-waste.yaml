@@ -83,10 +83,10 @@ variables:
     {{ ns.devices }}
 
   icon: >-
-    {{ icon_dict[waste_type.state] }}
+    {{ icon_dict[states[waste_type].state] }}
 
   weekday: >-
-    {{ weekday_dict[waste_day.state] }}
+    {{ states[waste_day].state }}
 
   # compose the MQTT payload for waste collection
   payload_waste: >-
