@@ -1,6 +1,6 @@
 ---
 blueprint:
-  name: ☼ AWTRIX - Waste collection
+  name: AWTRIX - Waste collection
   description: >
     This blueprint will display the next upcoming waste collection event on the display
 
@@ -27,6 +27,22 @@ blueprint:
 
 mode: single
 variables:
+  icon_dict:
+    Restmüll: 11979
+    Biomüll: 12442
+    Altpapier: 10124
+    Gelber Sack: 11005
+    Problemmüll: 0
+
+  weekday_dict:
+    Monday: "Montag"
+    Tuesday: "Dienstg"
+    Wednesday: "Mittwoch"
+    Thursday: "Donnerstag"
+    Friday: "Freitag"
+    Saturday: "Samstag"
+    Sunday: "Sonntag"
+
   # The list of AWTRIX devices that should receive the data
   device_ids: !input awtrix
 
@@ -43,17 +59,16 @@ variables:
     {{ ns.devices }}
 
   # Icon for house-consumption
-  h_icon: 1299
-  # Icon for PV-Generation
-  pv_icon: 34921
+  icon: icon_dict["Gelber Sack"]
+  weekday: weekday_dict["Monday"]
 
   # compose the MQTT payload for house consumption
   payload_waste: >-
     {% if 2 < 3 -%}
     {
-     "icon": 11005,
+     "icon": icon,
      "pushIcon": "0",
-     "text": "Monday"
+     "text": weekday
     }
     {%- else %}{%- endif %}
 
