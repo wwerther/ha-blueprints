@@ -36,6 +36,17 @@ blueprint:
           multiple: false
       default: sensor.leerungstyp
 
+    wasteday:
+      name: Next collected Waste-Day
+      description:
+        Test
+      selector:
+        entity:
+          domain: 
+            - sensor
+          multiple: false
+      default: sensor.nachteleerungwochentag
+
 mode: single
 variables:
   icon_dict:
@@ -56,6 +67,8 @@ variables:
 
   # The list of AWTRIX devices that should receive the data
   device_ids: !input awtrix
+  waste_type: !input wastetype
+  waste_day: !input wasteday
 
   # Topics that we need for receiving the messages
   devices_topics: >-
@@ -70,16 +83,16 @@ variables:
     {{ ns.devices }}
 
   # Icon for house-consumption
-  icon: icon_dict[wastetype]
-  weekday: weekday_dict["Monday"]
+  icon: icon_dict[waste_type]
+  weekday: weekday_dict[waste_day]
 
   # compose the MQTT payload for house consumption
   payload_waste: >-
     {% if 2 < 3 -%}
     {
-     "icon": icon,
+     "icon": {{ icon }},
      "pushIcon": "0",
-     "text": weekday
+     "text": {{ weekday }}
     }
     {%- else %}{%- endif %}
 
