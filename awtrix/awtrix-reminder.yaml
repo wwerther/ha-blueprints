@@ -1,0 +1,135 @@
+---
+blueprint:
+  name: AWTRIX - Reminder
+  description: >
+    This blueprint will display the next upcoming waste collection event on the display
+
+    The following icons are needed on your Awtrix
+      Laundry: 54961
+      Dishwasher: 47488
+      Dryer: 26675
+
+  domain: automation
+  author: Walter
+
+  input:
+    awtrix:
+      name: AWTRIX 3 devices
+      description: 
+        Select the Awtrix light(s) that should receive the apps
+      selector:
+        device:
+          integration: mqtt
+          manufacturer: Blueforcer
+          model: AWTRIX 3
+          multiple: true
+
+    wastetype:
+      name: Next collected Waste
+      description:
+        Test
+      selector:
+        entity:
+          domain: 
+            - sensor
+          multiple: false
+      default: sensor.leerungstyp
+
+    wasteday:
+      name: Next collected Waste-Day
+      description:
+        Test
+      selector:
+        entity:
+          domain: 
+            - sensor
+          multiple: false
+      default: sensor.nachteleerungwochentag
+
+    reminderonoff:
+      name: Reminder
+      description:
+        Should the reminder be shown at the moment or not
+      default: input_boolean.trash_reminder
+
+mode: single
+variables:
+  icon_dict:
+    Restmüll: 11979
+    Biomüll: 12442
+    Altpapier: 10124
+    Gelber Sack: 11005
+    Problemmüll: 0
+
+  weekday_dict:
+    Monday: "Montag"
+    Tuesday: "Dienstg"
+    Wednesday: "Mittwoch"
+    Thursday: "Donnerstag"
+    Friday: "Freitag"
+    Saturday: "Samstag"
+    Sunday: "Sonntag"
+
+  # The list of AWTRIX devices that should receive the data
+  device_ids: !input awtrix
+  waste_type: !input wastetype
+  waste_day: !input wasteday
+
+  remind: !input reminderonoff
+
+  # Topics that we need for receiving the messages
+  devices_topics: >-
+    {%- macro get_device_topic(device_id) %}
+    {{ states((device_entities(device_id) | select('search','device_topic') | list)[0]) }}
+    {%- endmacro %}
+    {%- set ns = namespace(devices=[]) %}
+    {%- for device_id in device_ids %}
+      {%- set device=get_device_topic(device_id)|replace(' ','') %}
+      {% set ns.devices = ns.devices + [ device ~ '/custom/waste' ] %}
+    {%- endfor %}
+    {{ ns.devices }}
+
+  icon: >-
+    {%- if is_state(waste_type,"Gelber Sack") -%}
+    11005
+    {%- elif is_state(waste_type,"Restmüll") -%}
+    11979
+    {%- elif is_state(waste_type,"Biotonne") -%}
+    12442
+    {%- elif is_state(waste_type,"Problemmüll") -%}
+    0
+    {%- else %}
+    0
+    {%- endif %}
+
+  day: >-
+    {{ states[waste_day].state }}
+
+  # compose the MQTT payload for waste collection
+  payload_waste: >-
+    {% if is_state(remind,'on') -%}
+    {
+     "icon": {{ icon }},
+     "pushIcon": "0",
+     "text": "{{ day }}"
+    }
+    {%- else %}{%- endif %}
+
+triggers:
+  - trigger: state
+    entity_id: !input reminderonoff
+  - trigger: state
+    entity_id: !input reminderonoff
+  - trigger: state
+    entity_id: !input reminderonoff
+
+action:
+  - repeat:
+      for_each: "{{ devices_topics }}"
+      sequence:
+        - service: mqtt.publish
+          data:
+            qos: 0
+            retain: false
+            topic: "{{ repeat.item }}0"
+            payload: "{{ payload_waste }}"
