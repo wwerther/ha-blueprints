@@ -95,7 +95,7 @@ variables:
     11005
     {%- elif is_state(waste_type,"Restmüll") -%}
     11979
-    {%- elif is_state(waste_type,"Biomüll") -%}
+    {%- elif is_state(waste_type,"Biotonne") -%}
     12442
     {%- elif is_state(waste_type,"Problemmüll") -%}
     0
