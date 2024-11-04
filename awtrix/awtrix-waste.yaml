@@ -1,6 +1,6 @@
 ---
 blueprint:
-  name: AWTRIX - Waste collection
+  name: 🗑 AWTRIX - Waste collection
   description: >
     This blueprint will display the next upcoming waste collection event on the display
 
@@ -34,7 +34,7 @@ blueprint:
           domain: 
             - sensor
           multiple: false
-      default: sensor.leerungstyp
+      default: sensor.nachste_leerung
 
     wasteday:
       name: Next collected Waste-Day
@@ -45,13 +45,13 @@ blueprint:
           domain: 
             - sensor
           multiple: false
-      default: sensor.nachteleerungwochentag
+      default: sensor.nachste_leerung_wochentag
 
     reminderonoff:
       name: Reminder
       description:
         Should the reminder be shown at the moment or not
-      default: input_boolean.trash_reminder
+      default: input_boolean.wastecollectionschedule_reminder
 
 mode: single
 variables:
@@ -117,6 +117,7 @@ variables:
     {%- else %}{%- endif %}
 
 trigger:
+  # TODO: Find a way to use ReminderOnOff as Trigger
   - platform: time_pattern
     minutes: "/30"
   
